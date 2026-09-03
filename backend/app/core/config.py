@@ -24,8 +24,10 @@ class Settings(BaseSettings):
         default_factory=lambda: [AnyHttpUrl("http://localhost:5173")]
     )
 
-    jwt_secret_key: str = "development-only-change-me"
+    jwt_secret_key: str = "development-only-change-this-secret-key"
     jwt_algorithm: str = "HS256"
+    jwt_issuer: str = "naboshare-api"
+    jwt_audience: str = "naboshare-web"
     access_token_expire_minutes: int = 30
 
     @property

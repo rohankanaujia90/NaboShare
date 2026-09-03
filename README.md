@@ -37,6 +37,16 @@ The browser communicates with versioned endpoints under `/api/v1`. During develo
 
 Interactive API documentation is available at `http://localhost:8000/docs` outside production.
 
+### Authentication endpoints
+
+| Endpoint | Purpose | Authentication |
+| --- | --- | --- |
+| `POST /api/v1/auth/register` | Create a user account | Public |
+| `POST /api/v1/auth/login` | Exchange email and password for an access token | Public |
+| `GET /api/v1/auth/me` | Return the current public user profile | Bearer token |
+
+Passwords are hashed with Argon2 and are never returned by the API. Access tokens are signed JWTs with issuer, audience, issued-at, and expiry claims. The browser persists the access token in local storage for this MVP and clears it when validation fails or the user logs out. A production hardening phase should move session persistence to secure, HTTP-only cookies alongside CSRF protection and refresh-token rotation.
+
 ## Prerequisites
 
 - Node.js 22 or newer and npm 10 or newer
@@ -151,9 +161,11 @@ Review every generated migration before applying it. To roll back one revision, 
 | `DATABASE_URL` | Local PostgreSQL URL | SQLAlchemy connection URL |
 | `DATABASE_CONNECT_TIMEOUT_SECONDS` | `5` | Maximum initial database connection wait |
 | `CORS_ORIGINS` | Local Vite origin | JSON array of allowed browser origins |
-| `JWT_SECRET_KEY` | Development placeholder | Future JWT signing secret; replace outside local development |
-| `JWT_ALGORITHM` | `HS256` | Future JWT signing algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Future access-token lifetime |
+| `JWT_SECRET_KEY` | Development placeholder | JWT signing secret; replace outside local development |
+| `JWT_ALGORITHM` | `HS256` | JWT signing algorithm |
+| `JWT_ISSUER` | `naboshare-api` | Required token issuer |
+| `JWT_AUDIENCE` | `naboshare-web` | Required token audience |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Access-token lifetime |
 
 ### Frontend
 
