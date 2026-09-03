@@ -1,0 +1,42 @@
+{
+  "name": "naboshare-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm run test",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@testing-library/jest-dom": "^6.6.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.6.0",
+    "eslint": "^9.30.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.6.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.35.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.0"
+  }
+}
