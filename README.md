@@ -47,6 +47,18 @@ Interactive API documentation is available at `http://localhost:8000/docs` outsi
 
 Passwords are hashed with Argon2 and are never returned by the API. Access tokens are signed JWTs with issuer, audience, issued-at, and expiry claims. The browser persists the access token in local storage for this MVP and clears it when validation fails or the user logs out. A production hardening phase should move session persistence to secure, HTTP-only cookies alongside CSRF protection and refresh-token rotation.
 
+### Verified community endpoints
+
+| Endpoint | Purpose | Authentication |
+| --- | --- | --- |
+| `POST /api/v1/communities` | Create a community and join it as its first member | Bearer token |
+| `POST /api/v1/communities/join` | Join a community using its invite code | Bearer token |
+| `GET /api/v1/communities/me` | Return the current user's community | Bearer token |
+
+Supported community types are `college`, `hostel`, `apartment_society`, and `corporate_campus`. Invite codes are unique, cryptographically generated eight-character codes. A user can belong to one community in the MVP and cannot switch communities through the public API.
+
+Community-owned resources must use the backend's `require_current_community` dependency. This resolves community scope from the authenticated user and prevents item endpoints from accepting or trusting an arbitrary client-provided community ID. When item listings are introduced, every item query must filter by this resolved community ID.
+
 ## Prerequisites
 
 - Node.js 22 or newer and npm 10 or newer
@@ -177,11 +189,10 @@ Review every generated migration before applying it. To roll back one revision, 
 
 Suggested feature order:
 
-1. Community, user, and membership models with verified-domain onboarding.
-2. JWT authentication with refresh-token rotation and password hashing.
-3. Item listings, images, availability, and community-scoped discovery.
-4. Rental requests and an explicit rental state machine.
-5. Payment-provider integration, deposits, commissions, and idempotent webhooks.
-6. Return confirmation, disputes, reviews, notifications, and audit events.
+1. Item listings, images, availability, and community-scoped discovery.
+2. Refresh-token rotation and secure cookie-based sessions.
+3. Rental requests and an explicit rental state machine.
+4. Payment-provider integration, deposits, commissions, and idempotent webhooks.
+5. Return confirmation, disputes, reviews, notifications, and audit events.
 
 Keep authorization community-scoped at the query/service layer, use decimal database types for money, store times in UTC, and model rental transitions explicitly rather than with loosely related booleans.

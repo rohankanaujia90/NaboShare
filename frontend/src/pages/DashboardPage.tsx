@@ -1,4 +1,5 @@
 import { useAuth } from '../auth/useAuth'
+import { CommunityPanel } from '../community/CommunityPanel'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -23,6 +24,7 @@ export function DashboardPage() {
           <p className="mt-2 font-bold">{user?.email}</p>
         </div>
       </div>
+      <CommunityPanel />
     </section>
   )
 }
