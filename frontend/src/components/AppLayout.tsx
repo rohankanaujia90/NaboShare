@@ -7,13 +7,22 @@ export function AppLayout() {
 
   return (
     <main className="min-h-screen bg-stone-50 text-slate-950">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-6">
         <Link className="text-xl font-black tracking-tight" to="/">
           Nabo<span className="text-emerald-600">Share</span>
         </Link>
         <div className="flex items-center gap-3 text-sm font-semibold">
           {user ? (
             <>
+              <Link to="/marketplace" className="text-emerald-800">
+                Browse
+              </Link>
+              <Link to="/rentals" className="text-emerald-800">
+                Rentals
+              </Link>
+              <Link to="/app" className="text-slate-600 sm:hidden">
+                Account
+              </Link>
               <Link className="hidden text-slate-600 sm:block" to="/app">
                 {user.full_name}
               </Link>

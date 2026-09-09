@@ -7,6 +7,10 @@ import { DashboardPage } from './pages/DashboardPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { MarketplacePage } from './marketplace/MarketplacePage'
+import { ItemFormPage } from './marketplace/ItemFormPage'
+import { ItemDetailsPage } from './marketplace/ItemDetailsPage'
+import { RentalsPage } from './rentals/RentalsPage'
 
 export function App() {
   return (
@@ -18,7 +22,12 @@ export function App() {
             <Route element={<LoginPage />} path="login" />
             <Route element={<RegisterPage />} path="register" />
             <Route element={<ProtectedRoute />}>
+              <Route element={<MarketplacePage />} path="marketplace" />
+              <Route element={<ItemFormPage />} path="items/new" />
+              <Route element={<ItemFormPage />} path="items/:id/edit" />
+              <Route element={<ItemDetailsPage />} path="items/:id" />
               <Route element={<DashboardPage />} path="app" />
+              <Route element={<RentalsPage />} path="rentals" />
             </Route>
           </Route>
         </Routes>
