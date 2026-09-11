@@ -17,7 +17,11 @@ import { RequestRentalForm } from './RequestRentalForm'
 import { RentalsPage } from './RentalsPage'
 
 vi.mock('../auth/useAuth', () => ({
-  useAuth: () => ({ accessToken: 'token', user: { id: 'owner' } }),
+  useAuth: () => ({
+    accessToken: 'token',
+    user: { id: 'owner' },
+    refreshUser: vi.fn().mockResolvedValue(undefined),
+  }),
 }))
 vi.mock('../lib/rentals-api', async (original) => ({
   ...(await original<typeof import('../lib/rentals-api')>()),
@@ -35,6 +39,20 @@ const rental: Rental = {
   security_deposit: '1000.00',
   status: 'PENDING',
   created_at: '',
+  borrower: {
+    id: 'borrower',
+    full_name: 'Asha',
+    nabo_score: 78,
+    nabo_label: 'Good',
+  },
+  owner: {
+    id: 'owner',
+    full_name: 'Rohan',
+    nabo_score: 95,
+    nabo_label: 'Excellent',
+  },
+  viewer_has_rated: false,
+  damage_reported: false,
 }
 afterEach(() => {
   cleanup()
@@ -149,7 +167,44 @@ it('loads lending requests and refreshes after accepting', async () => {
       'token',
       '/rental/accept',
       'POST',
+      undefined,
     ),
   )
   await screen.findByRole('button', { name: 'Accept request' })
+})
+
+it('shows scores and submits post-return feedback', async () => {
+  vi.mocked(rentalRequest).mockImplementation((_token, _path, method) =>
+    Promise.resolve(
+      method === 'POST'
+        ? rental
+        : { rentals: [{ ...rental, status: 'RETURNED' }], total: 1 },
+    ),
+  )
+  render(
+    <MemoryRouter>
+      <RentalsPage />
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText('Excellent')).toBeInTheDocument()
+  expect(screen.getByText('Good')).toBeInTheDocument()
+  fireEvent.change(screen.getByLabelText('Rating'), { target: { value: '4' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Submit rating' }))
+  await waitFor(() =>
+    expect(rentalRequest).toHaveBeenCalledWith(
+      'token',
+      '/rental/rating',
+      'POST',
+      { rating: 4 },
+    ),
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Report damaged item' }))
+  await waitFor(() =>
+    expect(rentalRequest).toHaveBeenCalledWith(
+      'token',
+      '/rental/damage-dispute',
+      'POST',
+      undefined,
+    ),
+  )
 })

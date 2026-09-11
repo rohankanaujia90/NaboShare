@@ -2,7 +2,16 @@ import re
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    computed_field,
+    field_validator,
+)
+
+from app.services.scoring import score_label
 
 
 class RegisterRequest(BaseModel):
@@ -61,6 +70,25 @@ class UserResponse(BaseModel):
     phone: str | None
     nabo_score: int
     created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def nabo_label(self) -> str:
+        return score_label(self.nabo_score)
+
+
+class PublicUserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    full_name: str
+    nabo_score: int
+    created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def nabo_label(self) -> str:
+        return score_label(self.nabo_score)
 
 
 class TokenResponse(BaseModel):

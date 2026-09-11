@@ -18,6 +18,13 @@ class RentalCreate(BaseModel):
     end_date: date
 
 
+class RentalParty(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    nabo_score: int
+    nabo_label: str
+
+
 class RentalResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -30,6 +37,34 @@ class RentalResponse(BaseModel):
     platform_fee: Decimal
     security_deposit: Decimal
     status: RentalStatus
+    created_at: datetime
+    borrower: RentalParty
+    owner: RentalParty
+    viewer_has_rated: bool = False
+    damage_reported: bool = False
+
+
+class RentalRatingCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    rating: int = Field(ge=1, le=5)
+
+
+class RentalRatingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    rental_id: uuid.UUID
+    rater_id: uuid.UUID
+    rated_user_id: uuid.UUID
+    rating: int
+    created_at: datetime
+
+
+class DamageDisputeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: uuid.UUID
+    rental_id: uuid.UUID
+    reported_by_id: uuid.UUID
+    reported_user_id: uuid.UUID
     created_at: datetime
 
 

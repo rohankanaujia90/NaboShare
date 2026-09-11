@@ -7,14 +7,17 @@ from sqlalchemy.orm import Session
 
 from app.models.item import Item
 from app.models.rental import RentalRequest
+from app.models.score import DamageDispute, RentalRating
 from app.models.user import User
 from app.schemas.rental import (
     RentalAction,
     RentalCreate,
     RentalFilters,
     RentalPage,
+    RentalParty,
     RentalResponse,
 )
+from app.services.scoring import ScoreReason, apply_score_event, score_label
 
 COMMISSION = Decimal("0.10")
 TRANSITIONS: dict[str, dict[str, str]] = {
@@ -99,7 +102,7 @@ def check_conflict(
 
 def create_rental(
     db: Session, user: User, community_id: uuid.UUID, data: RentalCreate
-) -> RentalRequest:
+) -> RentalResponse:
     if data.start_date < today_utc():
         raise RentalError(422, "Start date cannot be in the past")
     if (data.end_date - data.start_date).days > 365:
@@ -138,7 +141,7 @@ def create_rental(
     db.add(rental)
     db.commit()
     db.refresh(rental)
-    return rental
+    return serialize_rental(db, rental, user.id)
 
 
 def participant_query(
@@ -167,6 +170,56 @@ def get_rental(
     return rental
 
 
+def serialize_rental(
+    db: Session, rental: RentalRequest, viewer_id: uuid.UUID
+) -> RentalResponse:
+    users = db.scalars(
+        select(User).where(User.id.in_([rental.borrower_id, rental.owner_id]))
+    ).all()
+    by_id = {item.id: item for item in users}
+    borrower = by_id[rental.borrower_id]
+    owner = by_id[rental.owner_id]
+    viewer_has_rated = (
+        db.scalar(
+            select(RentalRating.id).where(
+                RentalRating.rental_id == rental.id, RentalRating.rater_id == viewer_id
+            )
+        )
+        is not None
+    )
+    damage_reported = (
+        db.scalar(select(DamageDispute.id).where(DamageDispute.rental_id == rental.id))
+        is not None
+    )
+    return RentalResponse(
+        id=rental.id,
+        item_id=rental.item_id,
+        borrower_id=rental.borrower_id,
+        owner_id=rental.owner_id,
+        start_date=rental.start_date,
+        end_date=rental.end_date,
+        rental_amount=rental.rental_amount,
+        platform_fee=rental.platform_fee,
+        security_deposit=rental.security_deposit,
+        status=rental.status,
+        created_at=rental.created_at,
+        borrower=RentalParty(
+            id=borrower.id,
+            full_name=borrower.full_name,
+            nabo_score=borrower.nabo_score,
+            nabo_label=score_label(borrower.nabo_score),
+        ),
+        owner=RentalParty(
+            id=owner.id,
+            full_name=owner.full_name,
+            nabo_score=owner.nabo_score,
+            nabo_label=score_label(owner.nabo_score),
+        ),
+        viewer_has_rated=viewer_has_rated,
+        damage_reported=damage_reported,
+    )
+
+
 def list_rentals(
     db: Session, user_id: uuid.UUID, community_id: uuid.UUID, filters: RentalFilters
 ) -> RentalPage:
@@ -184,7 +237,8 @@ def list_rentals(
         .limit(filters.limit)
     )
     return RentalPage(
-        rentals=[RentalResponse.model_validate(r) for r in rentals], total=total
+        rentals=[serialize_rental(db, rental, user_id) for rental in rentals],
+        total=total,
     )
 
 
@@ -194,7 +248,7 @@ def transition_rental(
     community_id: uuid.UUID,
     rental_id: uuid.UUID,
     action: RentalAction,
-) -> RentalRequest:
+) -> RentalResponse:
     rental = get_rental(db, user.id, community_id, rental_id)
     item = lock_item(db, rental.item_id, community_id)
     # Refresh changes made by a competing transaction while we waited for the lock.
@@ -225,7 +279,14 @@ def transition_rental(
         raise RentalError(
             409, "Accepted rentals can only be cancelled before the start date"
         )
+    if action == "return":
+        reason: ScoreReason = (
+            "ON_TIME_RETURN" if today_utc() <= rental.end_date else "LATE_RETURN"
+        )
+        apply_score_event(db, rental.borrower_id, rental.id, reason)
+    if action == "cancel" and rental.status == "ACCEPTED":
+        apply_score_event(db, user.id, rental.id, "CANCELLED_ACCEPTED_BOOKING")
     rental.status = target
     db.commit()
     db.refresh(rental)
-    return rental
+    return serialize_rental(db, rental, user.id)

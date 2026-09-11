@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.services.rental import RentalError
+from app.services.scoring import ScoringError
 
 settings = get_settings()
 
@@ -30,4 +31,9 @@ app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 @app.exception_handler(RentalError)
 async def rental_error_handler(request: Request, exc: RentalError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})
+
+
+@app.exception_handler(ScoringError)
+async def scoring_error_handler(request: Request, exc: ScoringError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content={"detail": str(exc)})

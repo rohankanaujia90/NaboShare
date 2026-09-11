@@ -230,6 +230,32 @@ All endpoints require a bearer token and community membership. Only the borrower
 
 `pytest` includes the state-transition matrix and HTTP integration tests using SQLite. To verify simultaneous approvals against real PostgreSQL, set `TEST_POSTGRES_URL` to a **dedicated test database** (SQLAlchemy `postgresql+psycopg://...` URL), then run `pytest tests/test_rental_concurrency.py`. The test creates and removes a uniquely named schema and requires schema-creation permission. Without that variable it is explicitly skipped; SQLite tests do not prove locking behavior.
 
+## NaboScore
+
+Every account starts at 100 and every score mutation is recorded once in the
+`nabo_score_events` audit table. The scoring formula lives independently in
+`app.services.scoring`, and both service and database constraints clamp scores to
+0–100.
+
+| Event | Score change |
+| --- | ---: |
+| Successful return on or before the return date | +2 borrower |
+| Rating of 4 or 5 after return | +1 rated user |
+| Return after the return date | −5 borrower |
+| Owner reports item damage during/after an active rental | −10 borrower |
+| Either participant cancels an accepted booking | −5 cancelling user |
+
+Labels are Excellent (90–100), Good (75–89), Average (60–74), and Risky (below
+60). Rental responses include community-safe borrower and owner profiles with
+their current score and label. `GET /api/v1/users/{id}` exposes the same public
+profile only to members of that user's community; it never exposes email, phone,
+or password data.
+
+After a rental is returned, either participant can submit one 1–5 rating with
+`POST /api/v1/rentals/{id}/rating`. Owners can create one damage report with
+`POST /api/v1/rentals/{id}/damage-dispute`. Duplicate submissions return 409.
+Apply migration `20260911_0005` with `alembic upgrade head` before use.
+
 ## Next implementation slices
 
 Suggested feature order:

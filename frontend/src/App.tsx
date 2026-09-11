@@ -11,6 +11,7 @@ import { MarketplacePage } from './marketplace/MarketplacePage'
 import { ItemFormPage } from './marketplace/ItemFormPage'
 import { ItemDetailsPage } from './marketplace/ItemDetailsPage'
 import { RentalsPage } from './rentals/RentalsPage'
+import { UserProfilePage } from './pages/UserProfilePage'
 
 export function App() {
   return (
@@ -28,6 +29,7 @@ export function App() {
               <Route element={<ItemDetailsPage />} path="items/:id" />
               <Route element={<DashboardPage />} path="app" />
               <Route element={<RentalsPage />} path="rentals" />
+              <Route element={<UserProfilePage />} path="profiles/:id" />
             </Route>
           </Route>
         </Routes>

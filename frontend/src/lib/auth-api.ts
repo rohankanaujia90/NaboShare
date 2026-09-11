@@ -6,7 +6,19 @@ export type User = {
   email: string
   phone: string | null
   nabo_score: number
+  nabo_label: string
   created_at: string
+}
+
+export type PublicUser = Pick<
+  User,
+  'id' | 'full_name' | 'nabo_score' | 'nabo_label' | 'created_at'
+>
+
+export function getUserProfile(token: string, id: string): Promise<PublicUser> {
+  return apiRequest<PublicUser>(`/api/v1/users/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
 }
 
 type TokenResponse = {

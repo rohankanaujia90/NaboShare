@@ -11,12 +11,14 @@ const authValue: AuthContextValue = {
     email: 'rohan@example.com',
     phone: null,
     nabo_score: 100,
+    nabo_label: 'Excellent',
     created_at: '2026-09-07T00:00:00Z',
   },
   accessToken: 'test-token',
   isLoading: false,
   login: () => Promise.resolve(),
   register: () => Promise.resolve(),
+  refreshUser: () => Promise.resolve(),
   logout: () => undefined,
 }
 

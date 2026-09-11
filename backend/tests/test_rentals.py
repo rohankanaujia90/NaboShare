@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, timedelta
 from decimal import Decimal
 from itertools import product
@@ -12,8 +13,26 @@ from app.models.community import Community
 from app.models.item import Item
 from app.models.user import User
 from app.services import rental as service
+from app.services.scoring import apply_score_event, score_label
 
 TODAY = date(2030, 1, 10)
+
+
+@pytest.mark.parametrize(
+    ("score", "label"),
+    [
+        (100, "Excellent"),
+        (90, "Excellent"),
+        (89, "Good"),
+        (75, "Good"),
+        (74, "Average"),
+        (60, "Average"),
+        (59, "Risky"),
+        (0, "Risky"),
+    ],
+)
+def test_score_labels(score: int, label: str) -> None:
+    assert score_label(score) == label
 
 
 def test_overdue_active_blocks_next_pickup(
@@ -350,3 +369,166 @@ def test_clients_cannot_supply_financials_or_status(
             ).status_code
             == 422
         )
+
+
+def test_score_events_are_clamped_and_idempotent(
+    client: TestClient, db_session: Session, rental_setup: dict[str, Any]
+) -> None:
+    rental = request(client, rental_setup).json()
+    borrower = rental_setup["users"]["borrower"]
+    borrower.nabo_score = 99
+    db_session.commit()
+
+    rental_id = uuid.UUID(rental["id"])
+    assert apply_score_event(db_session, borrower.id, rental_id, "ON_TIME_RETURN")
+    assert borrower.nabo_score == 100
+    assert not apply_score_event(db_session, borrower.id, rental_id, "ON_TIME_RETURN")
+    assert borrower.nabo_score == 100
+
+    borrower.nabo_score = 3
+    db_session.commit()
+    assert apply_score_event(db_session, borrower.id, rental_id, "DAMAGED_ITEM_DISPUTE")
+    assert borrower.nabo_score == 0
+
+
+def test_on_time_and_late_returns_update_borrower_score(
+    client: TestClient,
+    db_session: Session,
+    rental_setup: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    borrower = rental_setup["users"]["borrower"]
+    borrower.nabo_score = 80
+    db_session.commit()
+    on_time = request(client, rental_setup, start=0, end=1).json()
+    assert action(client, rental_setup, on_time["id"], "accept").status_code == 200
+    assert action(client, rental_setup, on_time["id"], "start").status_code == 200
+    returned = action(client, rental_setup, on_time["id"], "return").json()
+    assert returned["borrower"]["nabo_score"] == 82
+    assert returned["borrower"]["nabo_label"] == "Good"
+
+    borrower.nabo_score = 80
+    db_session.commit()
+    late = request(client, rental_setup, start=0, end=1).json()
+    assert action(client, rental_setup, late["id"], "accept").status_code == 200
+    assert action(client, rental_setup, late["id"], "start").status_code == 200
+    monkeypatch.setattr(service, "today_utc", lambda: TODAY + timedelta(days=2))
+    returned = action(client, rental_setup, late["id"], "return").json()
+    assert returned["borrower"]["nabo_score"] == 75
+
+
+@pytest.mark.parametrize("role", ["borrower", "owner"])
+def test_cancelled_accepted_booking_deducts_once(
+    client: TestClient,
+    db_session: Session,
+    rental_setup: dict[str, Any],
+    role: str,
+) -> None:
+    borrower = rental_setup["users"]["borrower"]
+    owner = rental_setup["users"]["owner"]
+    rental = request(client, rental_setup).json()
+    assert action(client, rental_setup, rental["id"], "accept").status_code == 200
+    cancelled = action(client, rental_setup, rental["id"], "cancel", role).json()
+    db_session.refresh(borrower)
+    db_session.refresh(owner)
+    other = "owner" if role == "borrower" else "borrower"
+    assert rental_setup["users"][role].nabo_score == 95
+    assert rental_setup["users"][other].nabo_score == 100
+    assert cancelled[role]["nabo_score"] == 95
+    assert action(client, rental_setup, rental["id"], "cancel", role).status_code == 409
+    db_session.refresh(borrower)
+    db_session.refresh(owner)
+    assert rental_setup["users"][role].nabo_score == 95
+
+
+def test_ratings_and_damage_disputes_are_scoped_and_single_use(
+    client: TestClient, db_session: Session, rental_setup: dict[str, Any]
+) -> None:
+    owner = rental_setup["users"]["owner"]
+    borrower = rental_setup["users"]["borrower"]
+    owner.nabo_score = 80
+    borrower.nabo_score = 80
+    db_session.commit()
+    rental = request(client, rental_setup, start=0, end=1).json()
+    for verb in ("accept", "start", "return"):
+        assert action(client, rental_setup, rental["id"], verb).status_code == 200
+
+    rating_url = f"/api/v1/rentals/{rental['id']}/rating"
+    result = client.post(
+        rating_url, headers=rental_setup["headers"]["borrower"], json={"rating": 4}
+    )
+    assert result.status_code == 201
+    db_session.refresh(owner)
+    assert owner.nabo_score == 81
+    assert (
+        client.post(
+            rating_url, headers=rental_setup["headers"]["borrower"], json={"rating": 5}
+        ).status_code
+        == 409
+    )
+    assert (
+        client.post(
+            rating_url, headers=rental_setup["headers"]["owner"], json={"rating": 3}
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            rating_url, headers=rental_setup["headers"]["stranger"], json={"rating": 5}
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            rating_url, headers=rental_setup["headers"]["owner"], json={"rating": 6}
+        ).status_code
+        == 422
+    )
+
+    dispute_url = f"/api/v1/rentals/{rental['id']}/damage-dispute"
+    assert (
+        client.post(
+            dispute_url, headers=rental_setup["headers"]["borrower"]
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(dispute_url, headers=rental_setup["headers"]["owner"]).status_code
+        == 201
+    )
+    db_session.refresh(borrower)
+    assert borrower.nabo_score == 72
+    assert (
+        client.post(dispute_url, headers=rental_setup["headers"]["owner"]).status_code
+        == 409
+    )
+
+
+def test_profiles_and_rental_requests_show_score_labels(
+    client: TestClient, db_session: Session, rental_setup: dict[str, Any]
+) -> None:
+    borrower = rental_setup["users"]["borrower"]
+    borrower.nabo_score = 59
+    rental_setup["item"].availability = True
+    db_session.commit()
+    rental = request(client, rental_setup).json()
+    assert rental["borrower"] == {
+        "id": str(borrower.id),
+        "full_name": "borrower",
+        "nabo_score": 59,
+        "nabo_label": "Risky",
+    }
+    response = client.get(
+        f"/api/v1/users/{borrower.id}",
+        headers=rental_setup["headers"]["owner"],
+    )
+    assert response.status_code == 200
+    assert response.json()["nabo_label"] == "Risky"
+    outsider = rental_setup["users"]["outsider"]
+    assert (
+        client.get(
+            f"/api/v1/users/{outsider.id}",
+            headers=rental_setup["headers"]["owner"],
+        ).status_code
+        == 404
+    )

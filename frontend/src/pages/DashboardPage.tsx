@@ -1,5 +1,6 @@
 import { useAuth } from '../auth/useAuth'
 import { CommunityPanel } from '../community/CommunityPanel'
+import { NaboScoreBadge } from '../components/NaboScoreBadge'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -15,8 +16,17 @@ export function DashboardPage() {
       <div className="mt-10 grid gap-5 sm:grid-cols-2">
         <div className="rounded-3xl border border-slate-200 bg-white p-7">
           <p className="text-sm font-semibold text-slate-500">Nabo score</p>
-          <p className="mt-2 text-5xl font-black text-emerald-700">
-            {user?.nabo_score}
+          {user && (
+            <div className="mt-3">
+              <NaboScoreBadge
+                score={user.nabo_score}
+                label={user.nabo_label}
+                prominent
+              />
+            </div>
+          )}
+          <p className="mt-4 text-sm text-slate-500">
+            Excellent 90–100 · Good 75–89 · Average 60–74 · Risky below 60
           </p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-7">

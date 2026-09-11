@@ -17,6 +17,7 @@ backend/.mypy_cache/
 backend/.ruff_cache/
 backend/.coverage
 backend/htmlcov/
+.postgres-data/
 __pycache__/
 *.py[cod]
 
@@ -29,4 +30,3 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
-

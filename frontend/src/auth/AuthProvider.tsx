@@ -50,6 +50,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await login(data.email, data.password)
   }
 
+  async function refreshUser() {
+    if (!accessToken) return
+    setUser(await getCurrentUser(accessToken))
+  }
+
   function logout() {
     window.localStorage.removeItem(TOKEN_STORAGE_KEY)
     setAccessToken(null)
@@ -58,7 +63,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   return (
     <AuthContext.Provider
-      value={{ user, accessToken, isLoading, login, register, logout }}
+      value={{
+        user,
+        accessToken,
+        isLoading,
+        login,
+        register,
+        refreshUser,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

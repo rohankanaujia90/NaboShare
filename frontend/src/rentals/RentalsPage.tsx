@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { NaboScoreBadge } from '../components/NaboScoreBadge'
 import { money } from '../lib/items-api'
 import {
   rentalActions,
   rentalStatuses,
+  type Rental,
   type RentalAction,
 } from '../lib/rentals-api'
 import { useRentals } from './useRentals'
@@ -15,6 +18,61 @@ const labels: Record<RentalAction, string> = {
   start: 'Confirm pickup',
   return: 'Confirm return',
 }
+
+function RentalFeedback({
+  rental,
+  userId,
+  state,
+}: {
+  rental: Rental
+  userId: string
+  state: ReturnType<typeof useRentals>
+}) {
+  const [rating, setRating] = useState(5)
+  const owner = rental.owner_id === userId
+  return (
+    <div className="mt-4 flex flex-wrap items-end gap-3 border-t pt-4">
+      {rental.status === 'RETURNED' && !rental.viewer_has_rated && (
+        <>
+          <label className="text-sm font-semibold">
+            Rate your neighbour
+            <select
+              aria-label="Rating"
+              value={rating}
+              onChange={(event) => setRating(Number(event.target.value))}
+              className="ml-2 rounded-lg border p-2"
+            >
+              {[5, 4, 3, 2, 1].map((value) => (
+                <option key={value} value={value}>
+                  {value} stars
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            disabled={!!state.busy}
+            onClick={() => void state.rate(rental.id, rating)}
+            className="rounded-lg bg-emerald-800 px-4 py-2 text-sm font-bold text-white"
+          >
+            Submit rating
+          </button>
+        </>
+      )}
+      {owner &&
+        ['ACTIVE', 'RETURNED'].includes(rental.status) &&
+        !rental.damage_reported && (
+          <button
+            disabled={!!state.busy}
+            onClick={() => void state.reportDamage(rental.id)}
+            className="rounded-lg border border-red-200 px-4 py-2 text-sm font-bold text-red-700"
+          >
+            Report damaged item
+          </button>
+        )}
+    </div>
+  )
+}
+
 export function RentalsPage() {
   const { user } = useAuth()
   const state = useRentals()
@@ -102,6 +160,30 @@ export function RentalsPage() {
                 <h2 className="mt-5 text-lg font-bold">
                   {rental.start_date} → {rental.end_date}
                 </h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+                      Borrower
+                    </p>
+                    <NaboScoreBadge
+                      id={rental.borrower.id}
+                      name={rental.borrower.full_name}
+                      score={rental.borrower.nabo_score}
+                      label={rental.borrower.nabo_label}
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+                      Owner
+                    </p>
+                    <NaboScoreBadge
+                      id={rental.owner.id}
+                      name={rental.owner.full_name}
+                      score={rental.owner.nabo_score}
+                      label={rental.owner.nabo_label}
+                    />
+                  </div>
+                </div>
                 <p className="mt-1 text-xs text-slate-500">
                   Return date exclusive · Ref {rental.id.slice(0, 8)}
                 </p>
@@ -131,6 +213,11 @@ export function RentalsPage() {
                     </button>
                   ))}
                 </div>
+                <RentalFeedback
+                  rental={rental}
+                  userId={user?.id ?? ''}
+                  state={state}
+                />
               </article>
             ))}
           </div>

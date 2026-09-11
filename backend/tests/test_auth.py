@@ -23,6 +23,7 @@ def test_register_login_and_get_current_user(
     assert registered_user["full_name"] == "Rohan Kanaujia"
     assert registered_user["phone"] == "+91 98765 43210"
     assert registered_user["nabo_score"] == 100
+    assert registered_user["nabo_label"] == "Excellent"
     assert "password" not in registered_user
     assert "password_hash" not in registered_user
 

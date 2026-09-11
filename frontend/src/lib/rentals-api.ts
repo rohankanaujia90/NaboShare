@@ -22,6 +22,16 @@ export type Rental = {
   security_deposit: string
   status: RentalStatus
   created_at: string
+  borrower: RentalParty
+  owner: RentalParty
+  viewer_has_rated: boolean
+  damage_reported: boolean
+}
+export type RentalParty = {
+  id: string
+  full_name: string
+  nabo_score: number
+  nabo_label: string
 }
 export type RentalPage = { rentals: Rental[]; total: number }
 export const utcToday = () => new Date().toISOString().slice(0, 10)
